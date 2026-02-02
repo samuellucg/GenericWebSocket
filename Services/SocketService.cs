@@ -14,24 +14,28 @@ namespace SocketClient.Services
 
         private SocketIO _client;
 
-        public SocketService(string route)
+        public SocketService(string route, SocketIOOptions? socketIOOptions)
         {
-            _client = new SocketIO(route, new SocketIOOptions
+
+            if(socketIOOptions != null)
+                _client = new SocketIO(route,socketIOOptions);
+            else
             {
-                EIO = EngineIO.V4,
-                Reconnection = true,
-                ReconnectionAttempts = int.MaxValue,
-                ReconnectionDelay = 1000,
-                ConnectionTimeout = new TimeSpan(60000),
-                Transport = SocketIOClient.Transport.TransportProtocol.WebSocket,
-            });
+                _client = new SocketIO(route, new SocketIOOptions
+                {
+                    EIO = EngineIO.V4,
+                    Reconnection = true,
+                    ReconnectionAttempts = int.MaxValue,
+                    Transport = SocketIOClient.Transport.TransportProtocol.WebSocket,
+                });
+            }
 
             _client.JsonSerializer = new NewtonsoftJsonSerializer();
             PopulateRegularEvents();
             PopulateEvents();
         }
 
-        private async Task InitializeSocket()
+        public async Task InitializeSocket()
         {
             await _client.ConnectAsync();
             if (_client.Connected)
@@ -46,9 +50,9 @@ namespace SocketClient.Services
             await _client.DisconnectAsync();
         }
 
-        private async Task EmitEvent(string eventName, params object[] payload)
+        public async Task EmitEvent(string eventName, params object[] payload)
         {
-            await _client.EmitAsync(eventName,payload)
+            await _client.EmitAsync(eventName, payload);
         }
 
         // For regular events in SocketIoClient library
@@ -102,12 +106,31 @@ namespace SocketClient.Services
                 Console.WriteLine($"Received: {response}");
             });
 
-            // Any event that aren't specified
-            _client.OnAny((name, response) =>
+            _client.On("ByeFromNode", (response) =>
             {
-                Console.WriteLine($"Event: {name}");
-                Console.WriteLine($"Received: {response}");
+                Console.WriteLine("Event ByeFromNode: ByeFromNode");
+                Console.WriteLine($"Received on ByeFromNode: {response}");
             });
+
+            _client.On("HomeApi", (response) => {
+                Console.WriteLine("Event: HomeApi");
+                Console.WriteLine($"Received on HomeApi: {response}");
+            });
+
+            _client.On("Atualizar rota", (response) =>
+            {
+                //...
+                Console.WriteLine("Event: Atualizar Rota");
+                Console.WriteLine($"Received on Atualizar Rota: {response}");
+
+            });
+
+            // Any event that aren't specified
+            //_client.OnAny((name, response) =>
+            //{
+            //    Console.WriteLine($"Event OnAny: {name}");
+            //    Console.WriteLine($"Received OnAny: {response}");
+            //});
         }
     }
 }
