@@ -1,53 +1,54 @@
-﻿using SocketIOClient;
-using SocketIOClient.Newtonsoft.Json;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using SocketClient.Services;
+using SocketIOClient;
 
-namespace SocketClient
+var host = Host.CreateDefaultBuilder(args).ConfigureServices(services =>
 {
-    class Program
+    services.AddLogging(logging =>
     {
-        static async Task Main(string[] args)
+        logging.ClearProviders();
+        logging.AddConsole();
+    });
+
+    services.AddSingleton<GenericWebSocket>(sp =>
+    {
+        var logger = sp.GetRequiredService<ILogger<GenericWebSocket>>();
+
+        var route = "http://localhost:3000";
+
+        var options = new SocketIOOptions
         {
-            var client = new SocketIOClient.SocketIO("http://localhost:3000", new SocketIOOptions
-            {
-                Transport = SocketIOClient.Transport.TransportProtocol.WebSocket,
-                EIO = EngineIO.V4,
-                Reconnection = true
-            });
+            Transport = SocketIOClient.Transport.TransportProtocol.WebSocket
+        };
 
-            client.JsonSerializer = new NewtonsoftJsonSerializer();
+        return new GenericWebSocket(logger, route, options);
+    });
 
-            client.OnConnected += async (sender, e) =>
-            {
-                Console.WriteLine($"Conectado, ID: {client.Id}");
-                await client.EmitAsync("HelloFromC#", "Conexão C# -> Node");
-            };
+}).Build();
 
-            client.OnAny((name, response) => {
-                Console.WriteLine($"Evento: {name}");
-                Console.WriteLine($"Recebido: {response}");
-            });
+var logger = host.Services.GetRequiredService<ILogger<Program>>();
+var socket = host.Services.GetRequiredService<GenericWebSocket>();
 
-            client.On("Test", response =>
-            {
-                var dados = response.GetValue<string>();
-                Console.WriteLine($"Mensagem do server ao event ('Test'): {dados}");
-            });
+logger.LogInformation("Console app started");
 
-            try
-            {
-                await client.ConnectAsync();
-                await Task.Delay(-1); // loop infinito
-            }
-            catch(ConnectionException ex)
-            {
-                Console.WriteLine(ex.Message);
-                await Task.Delay(10000);
-                await client.ConnectAsync();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Deu ruim1: {ex.Message}");
-            }
-        }
-    }
-}
+await socket.InitializeSocket();
+
+socket.RegisterNewEvent<string>("Ping", async (msg) =>
+{
+    //Console.WriteLine("Message info on event 'HealthCheck':", msg);
+    Console.WriteLine($"\nEvent: Ping \nMessage: {msg}");
+    await socket.EmitEvent("Pong", "Pong");
+});
+
+socket.RegisterNewEvent<string>("ByeFromServer", (msg) =>
+{
+    //Console.WriteLine("Message info on event 'ByeFromServer':", msg);
+    Console.WriteLine($"\nEvent: ByeFromServer \nMessage: {msg}");
+});
+
+await socket.EmitEvent("HelloFromCSharp", "Hello server!");
+
+// mantém vivo
+await Task.Delay(Timeout.Infinite);
