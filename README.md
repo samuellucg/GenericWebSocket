@@ -158,17 +158,8 @@ Primeira versão estável com:
 
 ---
 
-## 🔮 Próximos Passos (Opcional)
-
-* Interface pública (`IGenericWebSocket`)
-* Callbacks assíncronos (`Func<T, Task>`)
-* Reconexão customizada por evento
-* Testes unitários
-
----
-
 ## 👤 Autor
 
-Samuel
+Samuel Lucas
 
 Projeto criado com foco em aprendizado real, boas práticas e código reutilizável.
